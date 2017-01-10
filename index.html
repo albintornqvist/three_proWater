@@ -7,6 +7,7 @@
     <script type="text/javascript" src="libs/three.js"></script>
     <script type="text/javascript" src="libs/stats.js"></script>
     <script type="text/javascript" src="libs/simplex-noise.js"></script>
+    <script type="text/javascript" src="libs/dat.gui.js"></script>
     <style>
         body {
             /* set margin to 0 and overflow to hidden, to go fullscreen */
@@ -48,8 +49,8 @@
         scene.add(axes);
 
         // GEOMETRIES
-        var planeGeometry = new THREE.PlaneGeometry(80, 80);
-        var planeMaterial = new THREE.MeshLambertMaterial({color: "rgb(200, 200, 255)"});
+        var planeGeometry = new THREE.PlaneGeometry(80, 80, 40, 40);
+        var planeMaterial = new THREE.MeshPhongMaterial({color: "rgb(200, 200, 255)"});
         var plane = new THREE.Mesh(planeGeometry, planeMaterial);
 
         // rotate and position the plane
@@ -71,13 +72,24 @@
         var ambientLight = new THREE.AmbientLight(0x0c0c0c);
         scene.add(ambientLight);
 
-        var spotLight = new THREE.SpotLight(0xffffff, 5);
+        var spotLight = new THREE.SpotLight(0xffffff, 1);
         spotLight.position.set(40, 60, 10);
         spotLight.castShadow = true;
         scene.add(spotLight);
 
+        var controls = new function () {
+            this.amplitude = 5;
+            this.frequency = 0.05;
+        };
+
+        var gui = new dat.GUI();
+        gui.add(controls, 'amplitude', 0, 50);
+        gui.add(controls, 'frequency', 0, 0.1);
+
         //Noise function
         var simplex = new SimplexNoise();
+
+        var planeVertices = plane.geometry.vertices.slice();
 
         // add the output of the renderer to the html element
         document.getElementById("WebGL-output").appendChild(renderer.domElement);
@@ -91,7 +103,12 @@
 
             // bounce the sphere up and down
             step += 0.04;
-            plane.position.y = simplex.noise2D(step, step);
+            
+            for (var i = 0; i < planeVertices.length; i++) {
+                var disp = controls.amplitude * simplex.noise2D(planeVertices[i].x * controls.frequency, planeVertices[i].y * controls.frequency);
+                plane.geometry.vertices[i] = new THREE.Vector3(planeVertices[i].x, planeVertices[i].y, planeVertices[i].z+disp);
+            }
+            plane.geometry.verticesNeedUpdate = true;
 
             // render using requestAnimationFrame
             requestAnimationFrame(renderScene);
