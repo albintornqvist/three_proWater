@@ -3,8 +3,9 @@
 <html>
 
 <head>
-    <title>Example 01.02 - First Scene</title>
+    <title>The Procedural Ocean</title>
     <script type="text/javascript" src="libs/three.js"></script>
+    <script type="text/javascript" src="libs/stats.js"></script>
     <style>
         body {
             /* set margin to 0 and overflow to hidden, to go fullscreen */
@@ -14,6 +15,9 @@
     </style>
 </head>
 <body>
+
+<div id="Stats-output">
+</div>
 
 <!-- Div which will hold the Output -->
 <div id="WebGL-output">
@@ -25,6 +29,8 @@
     // once everything is loaded, we run our Three.js stuff.
     function init() {
 
+        var stats = initStats();
+
         // create a scene, that will hold all our elements such as objects, cameras and lights.
         var scene = new THREE.Scene();
 
@@ -33,7 +39,6 @@
 
         // create a render and set the size
         var renderer = new THREE.WebGLRenderer();
-        renderer.setClearColorHex();
         renderer.setClearColor(new THREE.Color(0xEEEEEE));
         renderer.setSize(window.innerWidth, window.innerHeight);
 
@@ -41,9 +46,9 @@
         var axes = new THREE.AxisHelper(20);
         scene.add(axes);
 
-        // create the ground plane
+        // GEOMETRIES
         var planeGeometry = new THREE.PlaneGeometry(80, 80);
-        var planeMaterial = new THREE.MeshBasicMaterial({color: 0xcccccc});
+        var planeMaterial = new THREE.MeshLambertMaterial({color: "rgb(200, 200, 255)"});
         var plane = new THREE.Mesh(planeGeometry, planeMaterial);
 
         // rotate and position the plane
@@ -61,11 +66,50 @@
         camera.position.z = 60;
         camera.lookAt(scene.position);
 
+        //LIGHTS
+        var ambientLight = new THREE.AmbientLight(0x0c0c0c);
+        scene.add(ambientLight);
+
+        var spotLight = new THREE.SpotLight(0xffffff, 5);
+        spotLight.position.set(40, 60, 10);
+        spotLight.castShadow = true;
+        scene.add(spotLight);
+
         // add the output of the renderer to the html element
         document.getElementById("WebGL-output").appendChild(renderer.domElement);
 
-        // render the scene
-        renderer.render(scene, camera);
+        // call the render function
+        var step = 0;
+        renderScene();
+
+        function renderScene() {
+            stats.update();
+
+            // bounce the sphere up and down
+            step += 0.04;
+            plane.position.x = 20 + ( 10 * (Math.cos(step)));
+            plane.position.y = 2 + ( 10 * Math.abs(Math.sin(step)));
+
+            // render using requestAnimationFrame
+            requestAnimationFrame(renderScene);
+            renderer.render(scene, camera);
+        }
+
+        function initStats() {
+
+            var stats = new Stats();
+
+            stats.setMode(0); // 0: fps, 1: ms
+
+            // Align top-left
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.left = '0px';
+            stats.domElement.style.top = '0px';
+
+            document.getElementById("Stats-output").appendChild(stats.domElement);
+
+            return stats;
+        }
     }
     window.onload = init;
 
