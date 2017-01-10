@@ -6,6 +6,7 @@
     <title>The Procedural Ocean</title>
     <script type="text/javascript" src="libs/three.js"></script>
     <script type="text/javascript" src="libs/stats.js"></script>
+    <script type="text/javascript" src="libs/simplex-noise.js"></script>
     <style>
         body {
             /* set margin to 0 and overflow to hidden, to go fullscreen */
@@ -75,6 +76,9 @@
         spotLight.castShadow = true;
         scene.add(spotLight);
 
+        //Noise function
+        var simplex = new SimplexNoise();
+
         // add the output of the renderer to the html element
         document.getElementById("WebGL-output").appendChild(renderer.domElement);
 
@@ -87,8 +91,7 @@
 
             // bounce the sphere up and down
             step += 0.04;
-            plane.position.x = 20 + ( 10 * (Math.cos(step)));
-            plane.position.y = 2 + ( 10 * Math.abs(Math.sin(step)));
+            plane.position.y = simplex.noise2D(step, step);
 
             // render using requestAnimationFrame
             requestAnimationFrame(renderScene);
