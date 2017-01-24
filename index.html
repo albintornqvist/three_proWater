@@ -32,6 +32,36 @@
     var scene;
     var renderer;
 
+
+    var vertexShader = "uniform float amplitude;" +
+        // "attribute float displacement;" +
+        "varying vec3 vNormal;" +
+
+        "void main() {" +
+
+          "vNormal = normal;" +
+          "vec3 newPosition = position + normal * amplitude;" +
+
+          "gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);" +
+        "}";
+                   
+    var fragmentShader = "void main() {" +
+                        "gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);" +
+                        "}";
+
+    var attributes = {
+          displacement: {
+            type: 'f', // a float
+            value: [] // an empty array
+          }
+        };
+        var uniforms = {
+          amplitude: {
+            type: 'f', // a float
+            value: 0
+          }
+        };                        
+
     // once everything is loaded, we run our Three.js stuff.
     function init() {
 
@@ -56,9 +86,14 @@
         scene.add(axes);
 
         // GEOMETRIES
+        
         var planeGeometry = new THREE.PlaneGeometry(150, 150, 40, 40);
-        var planeMaterial = new THREE.MeshLambertMaterial({ color:"#9999FF" });
-        var plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        var shaderMaterial = new THREE.ShaderMaterial({
+            attributes:     attributes,
+            uniforms:       uniforms,
+            vertexShader:   vertexShader
+        });
+        var plane = new THREE.Mesh(planeGeometry, shaderMaterial);
         plane.receiveShadow = true;
 
         // rotate and position the plane
@@ -68,7 +103,7 @@
         plane.position.z = -15;
 
         // add the plane to the scene
-        // scene.add(plane);
+        scene.add(plane);
 
 
         var sphereGeometry = new THREE.SphereGeometry(4, 20, 20);
@@ -140,32 +175,7 @@
             // bounce the sphere up and down
             step += 0.04;
 
-            var clonedPlaneGeometry = plane.geometry.clone();
-            
-            var vertices = plane.geometry.vertices;
-            for (var i = 0; i < vertices.length; i++) {
-                var disp = controls.amplitude * simplex.noise2D(vertices[i].x * controls.frequency + step, vertices[i].y * controls.frequency + step);
-                clonedPlaneGeometry.vertices[i] = new THREE.Vector3(vertices[i].x, vertices[i].y, vertices[i].z+disp);
-            }
-            clonedPlaneGeometry.verticesNeedUpdate = true;
-            clonedPlaneGeometry.computeFaceNormals();
-            clonedPlaneGeometry.computeVertexNormals(); 
-
-            var planeMaterial = new THREE.MeshLambertMaterial({ color:"#9999FF" });
-            var planeMesh = new THREE.Mesh(clonedPlaneGeometry, planeMaterial);
-            planeMesh.receiveShadow = true;
-
-            // rotate and position the plane
-            planeMesh.rotation.x = -0.5 * Math.PI;
-            planeMesh.position.x = 0;// 10;
-            planeMesh.position.y = 0;
-            planeMesh.position.z = -15;
-
-            planeMesh.name = "plane";
-            scene.remove(scene.getChildByName("plane"));
-            scene.add(planeMesh);
-
-            sphere.position.y = sphereYPos + controls.sphereHeight;
+            uniforms.amplitude.value = step;
 
             // render using requestAnimationFrame
             requestAnimationFrame(renderScene);
