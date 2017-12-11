@@ -190,13 +190,38 @@ float snoise(vec3 v, out vec3 gradient) {
   return 42.0 * dot(m4, pdotx);
 }
 
+    const float DEG_TO_RAD = 3.141592653589793 / 180.0;
 
+    mat4 rotationMatrix(vec3 axis, float angle)
+    {
+        axis = normalize(axis);
+        float s = sin(angle);
+        float c = cos(angle);
+        float oc = 1.0 - c;
 
+        return mat4(oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,  0.0,
+                    oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,  0.0,
+                    oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
+                    0.0,                                0.0,                                0.0,                                1.0);
+    }
+
+    float smoothAbs(float n) {
+        float mu = 0.05;
+        return abs(n) < mu ? n*n/(2.0*mu) : abs(n)-mu*0.5;
+    }
 
     float waterHeightMap(vec2 p) {
-      float amp = 7.0;
-      float freq = 0.05;
-      return amp * snoise(freq * p);
+
+      vec2 tempPosition = (rotationMatrix(vec3(0.0, 0.0, 1.0), 160.0 * DEG_TO_RAD) * vec4(vec3(p, 0.0), 1.0)).xy;
+
+      float firstWave = 5.0 * snoise(0.01 * tempPosition); // Just to get some large movement
+
+      vec2 pStretched = vec2(tempPosition.x, tempPosition.y * 3.0);
+      float secondWave = 1.5 * -smoothAbs(snoise(0.06 * pStretched));
+
+      float thirdWave = 0.05 * -smoothAbs(snoise(0.1 * pStretched));
+
+      return firstWave + secondWave + thirdWave;
     }
 
     //Vertex shader
@@ -205,37 +230,19 @@ float snoise(vec3 v, out vec3 gradient) {
     varying vec3 vPosition;
 
     void main() {
-        // vNormal = normal;
-
-        // float time = 1.0;
-        // float displaceamount = 1.0;
-
-        // // Displace surface
-        // vec3 grad = vec3(0.0); // To store gradient of noise
-        // float bump = snoise(position*2.0 + vec3(0.2, 0.13, 0.33)*time, grad);
-        // grad *= 2.0; // Scale gradient with inner derivative
-        // vec3 newPosition += displaceamount * bump * normal;
-        // //f.texCoord3 = coord; // Displaced but untransformed position
-
-        // // Perturb normal
-        // vec3 perturbation = grad - dot(grad, normal) * normal;
-        // normal -= displaceamount * perturbation;
-        // normal = normalize(normal);
-
         float displacement = waterHeightMap(position.xy);
-        // displacement = -max(0.0, displacement) + 5.0;
-
         // move the position along the normal and transform it
         vec3 newPosition = position + normal * displacement;
 
         //Recalculate normal
-        float delta = 0.001;
-        vec3 diffX = vec3(position.x+delta, position.y, position.z);
-        vec3 diffY = vec3(position.x, position.y+delta, position.z);
+        float delta = 0.0001;
+        vec3 diffX = vec3(position.x + delta, position.y, position.z);
+        vec3 diffY = vec3(position.x, position.y + delta, position.z);
         vec3 posX = diffX + normal * waterHeightMap(diffX.xy);
         vec3 posY = diffY + normal * waterHeightMap(diffY.xy);
         vec3 newNormal = normalize(cross(normalize(posX - newPosition), normalize(posY - newPosition)));
 
+        //share the normal and position with the fragment shader
         vNormal = newNormal;
         vPosition = newPosition;
 
@@ -266,8 +273,7 @@ float snoise(vec3 v, out vec3 gradient) {
         float lightS = max(0.0, dot(reflDir, viewDir));
         lightS = 0.4 * pow(lightS, 6.0);
 
-        vec3 totalColor = phongD * vec3(0.1, 0.2, 1.0) + lightA * vec3(1.0, 1.0, 1.0) + lightS * vec3(1.0, 0.0, 0.0);
-
+        vec3 totalColor = phongD * vec3(0.1, 0.2, 1.0) + lightA * vec3(1.0, 1.0, 1.0) + lightS * vec3(1.0, 1.0, 1.0);
 
         gl_FragColor = vec4( totalColor, 1.0 );
     }
@@ -318,7 +324,7 @@ float snoise(vec3 v, out vec3 gradient) {
 
         // GEOMETRIES
 
-        var planeGeometry = new THREE.PlaneGeometry(150, 150, 500, 500);
+        var planeGeometry = new THREE.PlaneGeometry(150, 150, 800, 800);
         var shaderMaterial = new THREE.ShaderMaterial({
             vertexShader: document.getElementById( 'vertexShader' ).textContent,
             fragmentShader: document.getElementById( 'fragmentShader' ).textContent
