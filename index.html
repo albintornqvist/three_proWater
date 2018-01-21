@@ -206,31 +206,37 @@ float snoise(vec3 v, out vec3 gradient) {
     }
 
     float smoothAbs(float n) {
-        float mu = 0.05;
-        return abs(n) < mu ? n*n/(2.0*mu) : abs(n)-mu*0.5;
+        float mu = 0.07;
+        return abs(n) < mu ? n*n/(2.0*mu)*0.5 : abs(n)-mu*0.5;
     }
 
-    float waterHeightMap(vec2 p) {
+    float waterHeightMap(vec2 p, float time) {
 
       vec2 tempPosition = (rotationMatrix(vec3(0.0, 0.0, 1.0), 160.0 * DEG_TO_RAD) * vec4(vec3(p, 0.0), 1.0)).xy;
+      vec3 position = vec3(tempPosition.x, tempPosition.y * 2.0 - time*9.0, time*9.0);
 
-      float firstWave = 5.0 * snoise(0.01 * tempPosition); // Just to get some large movement
+      vec3 grad = vec3(0.0);
 
-      vec2 pStretched = vec2(tempPosition.x, tempPosition.y * 3.0);
-      float secondWave = 1.5 * -smoothAbs(snoise(0.06 * pStretched));
+      float firstWave = 9.0 * snoise(0.01 * position, grad); // Just to get some large movement
 
-      float thirdWave = 0.05 * -smoothAbs(snoise(0.1 * pStretched));
+      vec3 pStretched = vec3(tempPosition.x, tempPosition.y * 3.0 - time*4.0, time*4.0);
+      float secondWave = 2.0 * -smoothAbs(snoise(0.04 * pStretched, grad));
 
-      return firstWave + secondWave + thirdWave;
+      float thirdWave = 0.5 * -smoothAbs(snoise(0.08 * pStretched, grad));
+
+      float fourthWave = 0.05 * -smoothAbs(snoise(0.16 * pStretched, grad));
+
+      return firstWave + secondWave + thirdWave + fourthWave;
     }
 
     //Vertex shader
     varying float noise;
     varying vec3 vNormal;
     varying vec3 vPosition;
+    uniform float time;
 
     void main() {
-        float displacement = waterHeightMap(position.xy);
+        float displacement = waterHeightMap(position.xy, time);
         // move the position along the normal and transform it
         vec3 newPosition = position + normal * displacement;
 
@@ -238,8 +244,8 @@ float snoise(vec3 v, out vec3 gradient) {
         float delta = 0.0001;
         vec3 diffX = vec3(position.x + delta, position.y, position.z);
         vec3 diffY = vec3(position.x, position.y + delta, position.z);
-        vec3 posX = diffX + normal * waterHeightMap(diffX.xy);
-        vec3 posY = diffY + normal * waterHeightMap(diffY.xy);
+        vec3 posX = diffX + normal * waterHeightMap(diffX.xy, time);
+        vec3 posY = diffY + normal * waterHeightMap(diffY.xy, time);
         vec3 newNormal = normalize(cross(normalize(posX - newPosition), normalize(posY - newPosition)));
 
         //share the normal and position with the fragment shader
@@ -258,28 +264,23 @@ float snoise(vec3 v, out vec3 gradient) {
 
     void main() {
 
-        vec3 newNormal = vNormal;
-
-        vec3 lightDirection = normalize(vec3(1.0, 0.2, 5.0));
-        vec3 lightSource2 = normalize(vec3(0.0, 1.0, 1.0));
+        vec3 lightDirection = normalize(vec3(0.0, 0.7, 1.0));
 
         float lightA = 0.01;  // Ambient level for diffuse reflection
 
         float phongD = max(0.0, dot(lightDirection, vNormal));
-        float lightD = mix(phongD, 1.0, lightA);
 
         vec3 reflDir = normalize(2.0 * dot(lightDirection, vNormal) * vNormal - lightDirection);
-        vec3 viewDir = normalize(cameraPosition - vPosition);
+        vec3 viewDir = normalize(vPosition - cameraPosition);
         float lightS = max(0.0, dot(reflDir, viewDir));
         lightS = 0.4 * pow(lightS, 6.0);
 
-        vec3 totalColor = phongD * vec3(0.1, 0.2, 1.0) + lightA * vec3(1.0, 1.0, 1.0) + lightS * vec3(1.0, 1.0, 1.0);
+        vec3 totalColor = phongD * vec3(0.2, 0.4, 0.7) + lightS * vec3(1.0, 1.0, 1.0);
 
         gl_FragColor = vec4( totalColor, 1.0 );
     }
 </script>
 
-<!-- Javascript code that runs our Three.js examples -->
 <script type="text/javascript">
 
     var camera;
@@ -292,12 +293,16 @@ float snoise(vec3 v, out vec3 gradient) {
             value: [] // an empty array
           }
         };
-        var uniforms = {
-          amplitude: {
-            type: 'f', // a float
-            value: 0
-          }
-        };
+    var uniforms = {
+      time: {
+        type: 'f',
+        value: 0
+      },
+      amplitude: {
+        type: 'f', // a float
+        value: 0
+      }
+    };
 
     // once everything is loaded, we run our Three.js stuff.
     function init() {
@@ -323,9 +328,9 @@ float snoise(vec3 v, out vec3 gradient) {
         scene.add(axes);
 
         // GEOMETRIES
-
-        var planeGeometry = new THREE.PlaneGeometry(150, 150, 800, 800);
+        var planeGeometry = new THREE.PlaneGeometry(120, 120, 500, 500);
         var shaderMaterial = new THREE.ShaderMaterial({
+            uniforms: uniforms,
             vertexShader: document.getElementById( 'vertexShader' ).textContent,
             fragmentShader: document.getElementById( 'fragmentShader' ).textContent
         });
@@ -336,7 +341,7 @@ float snoise(vec3 v, out vec3 gradient) {
         plane.rotation.x = -0.5 * Math.PI;
         plane.position.x = 0;// 10;
         plane.position.y = 0;
-        plane.position.z = -15;
+        plane.position.z = 0;
 
         // add the plane to the scene
         scene.add(plane);
@@ -357,9 +362,9 @@ float snoise(vec3 v, out vec3 gradient) {
 
 
         // position and point the camera to the center of the scene
-        camera.position.x = -30;
-        camera.position.y = 40;
-        camera.position.z = 60;
+        camera.position.x = -70;
+        camera.position.y = 40; // up
+        camera.position.z = 70;
         camera.lookAt(scene.position);
 
         //LIGHTS
@@ -408,14 +413,15 @@ float snoise(vec3 v, out vec3 gradient) {
         function renderScene() {
             stats.update();
 
+            uniforms.time.value = step;
             // bounce the sphere up and down
-            step += 0.04;
-
             uniforms.amplitude.value = step;
 
+            step += 0.1;
+
+            renderer.render(scene, camera);
             // render using requestAnimationFrame
             requestAnimationFrame(renderScene);
-            renderer.render(scene, camera);
         }
 
         function initStats() {
