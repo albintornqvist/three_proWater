@@ -206,32 +206,39 @@ float snoise(vec3 v, out vec3 gradient) {
     }
 
     float smoothAbs(float n) {
-        float mu = 0.07;
+        float mu = 0.01;
         return abs(n) < mu ? n*n/(2.0*mu)*0.5 : abs(n)-mu*0.5;
     }
 
-    float waterHeightMap(vec2 p, float time) {
+    float speedFromFrequency(float freq) {
+      return sqrt(9.8/(2.0*3.14*freq));
+    }
 
-      vec2 tempPosition = (rotationMatrix(vec3(0.0, 0.0, 1.0), 160.0 * DEG_TO_RAD) * vec4(vec3(p, 0.0), 1.0)).xy;
-      vec3 position = vec3(tempPosition.x, tempPosition.y * 2.0 - time * 9.0, time * 9.0);
-
+    float waveHeight(vec2 position, float time, float frequency, float scale, float stretch, float zOffset, bool pointy) {
       vec3 grad = vec3(0.0);
+      vec3 pStretched = vec3(position.x, position.y * stretch - time * speedFromFrequency(frequency), zOffset);
+      if (pointy) {
+        return scale * -smoothAbs(snoise(frequency * pStretched, grad));
+      }
+      return scale * snoise(frequency * pStretched, grad);
+    }
 
-      float firstWave = 9.0 * snoise(0.01 * position, grad); // Just to get some large movement
+    float waterHeightMap(vec2 p, float time, float rotation, float intensity) {
 
-      vec3 pStretched = vec3(tempPosition.x, tempPosition.y * 3.0 - 2.0 * time, 2.0 * time);
-      float secondWave = 2.0 * -smoothAbs(snoise(0.04 * pStretched, grad));
+      vec2 position = (rotationMatrix(vec3(0.0, 0.0, 1.0), rotation * DEG_TO_RAD) * vec4(vec3(p, 0.0), 1.0)).xy;
 
-      vec3 pStretched2 = vec3(tempPosition.x, tempPosition.y * 3.0 - time, time);
-      float thirdWave = 0.5 * -smoothAbs(snoise(0.08 * pStretched2, grad));
+      float wave = 0.0;
+      wave += waveHeight(position, time, 0.005, 6.4*intensity, 2.0, 11.0, false);
+      wave += waveHeight(position, time, 0.01, 3.2, 1.5*intensity, 9.0, false);
+      wave += waveHeight(position, time, 0.02, 1.6, 1.2, 3.0, true);
+      wave += waveHeight(position, time, 0.04, 0.8, 1.2, 7.0, true);
+      wave += waveHeight(position, time, 0.08, 0.4, 1.2, 50.0, true);
+      wave += waveHeight(position, time, 0.16, 0.2, 1.2, 30.0, true);
+      wave += waveHeight(position, time, 0.32, 0.1, 1.0, 20.0, true);
+      wave += waveHeight(position, time, 0.64, 0.05, 1.0, 20.0, true);
+      wave += waveHeight(position, time, 1.28, 0.025, 1.0, 10.0, true);
 
-      vec3 pStretched3 = vec3(tempPosition.x, tempPosition.y * 3.0 - time, time);
-      float fourthWave = 0.1 * -smoothAbs(snoise(0.16 * pStretched3, grad));
-
-      vec3 pStretched4 = vec3(tempPosition.x, tempPosition.y * 3.0 - 2.0 * time, 2.0 * time);
-      float fifthWave = 9.0 * -smoothAbs(snoise(0.01 * pStretched4, grad));
-
-      return firstWave + secondWave + thirdWave + fourthWave + fifthWave;
+      return wave;
     }
 
     float cutoffFilter(float min, float max, float displacement) {
@@ -263,18 +270,20 @@ float snoise(vec3 v, out vec3 gradient) {
     varying vec3 vPosition;
     varying float foam;
     uniform float time;
+    uniform float rotation;
+    uniform float intensity;
 
     void main() {
-        float displacement = waterHeightMap(position.xy, time);
+        float displacement = waterHeightMap(position.xy, time, rotation, intensity);
         // move the position along the normal and transform it
         vec3 newPosition = position + normal * displacement;
 
         //Recalculate normal
-        float delta = 0.0003;
+        float delta = 0.002;
         vec3 diffX = vec3(position.x + delta, position.y, position.z);
         vec3 diffY = vec3(position.x, position.y + delta, position.z);
-        vec3 posX = diffX + normal * waterHeightMap(diffX.xy, time);
-        vec3 posY = diffY + normal * waterHeightMap(diffY.xy, time);
+        vec3 posX = diffX + normal * waterHeightMap(diffX.xy, time, rotation, intensity);
+        vec3 posY = diffY + normal * waterHeightMap(diffY.xy, time, rotation, intensity);
         vec3 newNormal = normalize(cross(normalize(posX - newPosition), normalize(posY - newPosition)));
 
         //share the normal and position with the fragment shader
@@ -297,7 +306,7 @@ float snoise(vec3 v, out vec3 gradient) {
 
     vec3 lightFromHeight(float height) {
       // if (height > 0.0) {
-        return vec3(0.5, 0.6, 0.8) * (height + 9.0) / 20.0;
+        return vec3(0.5, 0.6, 0.8) * (height + 5.6) / 10.0;
       // }
       // return vec3(0.0, 0.0, 0.0);
     }
@@ -309,18 +318,19 @@ float snoise(vec3 v, out vec3 gradient) {
 
     void main() {
 
-        vec3 lightDirection = normalize(vec3(0.0, 0.7, 1.0));
+        vec3 lightDirection = normalize(vec3(0.0, 0.7, 1.0)); 
+        vec3 sLightDirection = normalize(vec3(-5.0, 2.0, 1.0));
 
         float lightA = 0.01;  // Ambient level for diffuse reflection
 
         float phongD = max(0.0, dot(lightDirection, vNormal));
 
-        vec3 reflDir = normalize(2.0 * dot(lightDirection, vNormal) * vNormal - lightDirection);
+        vec3 reflDir = normalize(2.0 * dot(sLightDirection, vNormal) * vNormal - sLightDirection);
         vec3 viewDir = normalize(vPosition - cameraPosition);
         float lightS = max(0.0, dot(reflDir, viewDir));
         lightS = 0.4 * pow(lightS, 6.0);
 
-        vec3 totalColor = phongD * vec3(0.2, 0.4, 0.6) + lightS * vec3(1.0, 1.0, 1.0) + 0.5 * clipFoam(foam, vPosition.z, vNormal) * vec3(1.0, 1.0, 1.0) + 0.5 * lightFromHeight(vPosition.z);
+        vec3 totalColor = phongD * vec3(0.2, 0.4, 0.6) + lightS * vec3(1.0, 1.0, 1.0) + 0.5 * lightFromHeight(vPosition.z) + lightA*vec3(1.0, 1.0, 1.0); // + 0.5 * clipFoam(foam, vPosition.z, vNormal) * vec3(1.0, 1.0, 1.0);
 
         gl_FragColor = vec4( totalColor, 1.0 );
     }
@@ -347,6 +357,14 @@ float snoise(vec3 v, out vec3 gradient) {
       amplitude: {
         type: 'f', // a float
         value: 0
+      },
+      intensity: {
+        type: 'f',
+        value: 25
+      },
+      rotation: {
+        type: 'f', // a float
+        value: 160
       }
     };
 
@@ -374,7 +392,7 @@ float snoise(vec3 v, out vec3 gradient) {
         scene.add(axes);
 
         // GEOMETRIES
-        var planeGeometry = new THREE.PlaneGeometry(120, 120, 400, 400);
+        var planeGeometry = new THREE.PlaneGeometry(120, 120, 600, 600);
         var shaderMaterial = new THREE.ShaderMaterial({
             uniforms: uniforms,
             vertexShader: document.getElementById( 'vertexShader' ).textContent,
@@ -429,15 +447,15 @@ float snoise(vec3 v, out vec3 gradient) {
 
         //CONTROLS
         var controls = new function () {
-            this.amplitude = 5;
-            this.frequency = 0.05;
-            this.sphereHeight = 0;
+            this.Intensity = 25.0;
+            this.Rotation = 160.0;
+            this.Speed = 1.0;
         };
 
         var gui = new dat.GUI();
-        gui.add(controls, 'amplitude', 0, 50);
-        gui.add(controls, 'frequency', 0, 0.1);
-        gui.add(controls, 'sphereHeight', 0, 10);
+        gui.add(controls, 'Intensity', 0, 50);
+        gui.add(controls, 'Rotation', 0, 360);
+        gui.add(controls, 'Speed', 0, 5);
 
         // add the output of the renderer to the html element
         document.getElementById("WebGL-output").appendChild(renderer.domElement);
@@ -457,8 +475,10 @@ float snoise(vec3 v, out vec3 gradient) {
             uniforms.time.value = step;
             // bounce the sphere up and down
             uniforms.amplitude.value = step;
+            uniforms.intensity.value = controls.Intensity/50.0;
+            uniforms.rotation.value = controls.Rotation;
 
-            step += 0.1;
+            step += 0.015*controls.Speed;
 
             renderer.render(scene, camera);
             // render using requestAnimationFrame
