@@ -211,7 +211,7 @@ float snoise(vec3 v, out vec3 gradient) {
     }
 
     float speedFromFrequency(float freq) {
-      // Using the quation for big waves http://hyperphysics.phy-astr.gsu.edu/hbase/Waves/watwav2.html
+      // Using the equation for big waves http://hyperphysics.phy-astr.gsu.edu/hbase/Waves/watwav2.html
       return 9.8/(2.0*3.14*freq);
     }
 
@@ -229,9 +229,9 @@ float snoise(vec3 v, out vec3 gradient) {
       vec2 position = (rotationMatrix(vec3(0.0, 0.0, 1.0), rotation * DEG_TO_RAD) * vec4(vec3(p, 0.0), 1.0)).xy;
 
       float wave = 0.0;
-      wave += waveHeight(position, time, 0.0025, 10.0*intensity, 2.0, 11.0, false);
-      wave += waveHeight(position, time, 0.005, 6.4*intensity, 2.0, 11.0, false);
-      wave += waveHeight(position, time, 0.01, 2.0*intensity, 1.5, 9.0, false);
+      wave += waveHeight(position, time, 0.0025, 10.0*intensity, 2.5, 1.0, false);
+      wave += waveHeight(position, time, 0.005, 6.4*intensity, 1.0, 11.0, false);
+      wave += waveHeight(position, time, 0.01, 2.0*intensity, 1.5, 9.0, true);
       wave += waveHeight(position, time, 0.02, 1.6*intensity, 1.5, 3.0, true);
       wave += waveHeight(position, time, 0.04, 0.8*intensity, 1.5, 7.0, true);
       wave += waveHeight(position, time, 0.08, 0.4*(intensity*0.5+0.5), 1.4, 50.0, true);
@@ -247,7 +247,6 @@ float snoise(vec3 v, out vec3 gradient) {
     varying float noise;
     varying vec3 vNormal;
     varying vec3 vPosition;
-    varying float foam;
     uniform float time;
     uniform float rotation;
     uniform float intensity;
@@ -476,40 +475,27 @@ float snoise(vec3 v, out vec3 gradient) {
     float foamMap(vec3 p, float time, float rotation) {
       vec2 position = (rotationMatrix(vec3(0.0, 0.0, 1.0), rotation * DEG_TO_RAD) * vec4(p, 1.0)).xy;
 
-      //position.x = position.x + (waveHeight(position, time, 0.14, 0.2, 1.0, time));
-      // vec3 position = vec3(rotatedPos.x, rotatedPos.y - time, time * 0.1);
-      // vec3 grad = vec3(0.0);
-      // float secondWave = (snoise(0.5 * position, grad) + 5.0 * snoise(1.0 * position, grad))/2.0;
-      // float firstWave = 3.0 * snoise(0.04 * vec3(position.x + secondWave, (position.y + secondWave)*3.0, position.z), grad) + 3.0 * snoise(0.02 * vec3(position.x + secondWave, (position.y + secondWave)*3.0, position.z), grad);
-
       float wave = 0.5;
       wave += waveHeight(position, time, 0.32, 0.1, 1.0, time, true);
       wave += waveHeight(position, time, 0.64, 0.05, 1.0, time, true);
       wave += waveHeight(position, time, 1.28, 0.025, 1.2, time, true);
-      wave += waveHeight(position, time, 0.02, 0.1, 2.0, time, false);
+      wave += waveHeight(position, time, 0.02, 0.2, 3.0, time, false);
 
-      float displacement = cutoffFilter(0.65, 0.9, wave);
+      float displacement = cutoffFilter(0.7, 0.9, wave);
       return displacement;
     }
 
     float clipFoam(float foam, float height, vec3 normal) {
-      return foam * max(0.0, dot(normal, normalize(vec3(normal.x, normal.y, 0.0))))/0.2;
-    }
-
-    vec3 lightFromHeight(float height) {
-      // if (height > 0.0) {
-        return vec3(0.5, 0.6, 0.8) * (height) / 10.0;
-      // }
-      // return vec3(0.0, 0.0, 0.0);
+      return foam * max(0.0, dot(normal, normalize(vec3(normal.x, normal.y, 0.0))));
     }
 
     varying float noise;
     varying vec3 vNormal;
     varying vec3 vPosition;
-    varying float foam;
     uniform float time;
     uniform float rotation;
     uniform float intensity;
+    uniform float foam;
 
     void main() {
 
@@ -525,7 +511,7 @@ float snoise(vec3 v, out vec3 gradient) {
         float lightS = max(0.0, dot(reflDir, viewDir));
         lightS = 0.5 * pow(lightS, 6.0);
 
-        vec3 totalColor = phongD * vec3(0.2, 0.4, 0.6) + lightS * vec3(1.0, 1.0, 0.8) + lightA*vec3(0.5, 0.6, 0.8) + 0.5 * intensity * clipFoam(foamMap(vPosition, time, rotation), vPosition.z, vNormal) * vec3(1.0, 1.0, 1.0);
+        vec3 totalColor = phongD * vec3(0.2, 0.4, 0.6) + lightS * vec3(1.0, 1.0, 0.8) + lightA*vec3(0.5, 0.6, 0.8) + foam * intensity * clipFoam(foamMap(vPosition, time, rotation), vPosition.z, vNormal) * vec3(1.0, 1.0, 1.0);
 
         gl_FragColor = vec4( totalColor, 1.0 );
     }
@@ -560,6 +546,10 @@ float snoise(vec3 v, out vec3 gradient) {
       rotation: {
         type: 'f', // a float
         value: 160
+      },
+      foam: {
+        type: 'f',
+        value: 1
       }
     };
 
@@ -645,33 +635,30 @@ float snoise(vec3 v, out vec3 gradient) {
             this.Intensity = 40.0;
             this.Rotation = 160.0;
             this.Speed = 1.5;
+            this.Foam = 1;
         };
 
         var gui = new dat.GUI();
         gui.add(controls, 'Intensity', 0, 100);
         gui.add(controls, 'Rotation', 0, 360);
         gui.add(controls, 'Speed', 0, 5);
+        gui.add(controls, 'Foam', 0, 1);
 
         // add the output of the renderer to the html element
         document.getElementById("WebGL-output").appendChild(renderer.domElement);
 
         // call the render function
         var step = 0;
-
-
-        //SAVED STATES
-        // var sphereYPos = sphere.position.y;
-
         renderScene();
 
         function renderScene() {
             stats.update();
 
             uniforms.time.value = step;
-            // bounce the sphere up and down
             uniforms.amplitude.value = step;
             uniforms.intensity.value = controls.Intensity/100.0;
             uniforms.rotation.value = controls.Rotation;
+            uniforms.foam.value = controls.Foam;
 
             step += 0.001*controls.Speed;
 
