@@ -234,11 +234,11 @@ float snoise(vec3 v, out vec3 gradient) {
       wave += waveHeight(position, time, 0.01, 2.0*intensity, 1.5, 9.0, true);
       wave += waveHeight(position, time, 0.02, 1.6*intensity, 1.5, 3.0, true);
       wave += waveHeight(position, time, 0.04, 0.8*intensity, 1.5, 7.0, true);
-      wave += waveHeight(position, time, 0.08, 0.4*(intensity*0.5+0.5), 1.4, 50.0, true);
-      wave += waveHeight(position, time, 0.16, 0.2*(intensity*0.5+0.5), 1.4, 30.0, true);
-      wave += waveHeight(position, time, 0.32, 0.1*(intensity*0.3+0.7), 1.2, 20.0, true);
-      wave += waveHeight(position, time, 0.64, 0.05*(intensity*0.2+0.8), 1.2, 20.0, true);
-      wave += waveHeight(position, time, 1.28, 0.025*(intensity*0.1+0.9), 1.0, 10.0, true);
+      wave += waveHeight(position, time, 0.08, 0.4*(intensity*0.5 + 0.5), 1.4, 50.0, true);
+      wave += waveHeight(position, time, 0.16, 0.2*(intensity*0.5 + 0.5), 1.4, 30.0, true);
+      wave += waveHeight(position, time, 0.32, 0.1*(intensity*0.3 + 0.7), 1.2, 20.0, true);
+      wave += waveHeight(position, time, 0.64, 0.05*(intensity*0.2 + 0.8), 1.2, 20.0, true);
+      wave += waveHeight(position, time, 1.28, 0.025*(intensity*0.1 + 0.9), 1.0, 10.0, true);
 
       return wave;
     }
@@ -573,8 +573,8 @@ float snoise(vec3 v, out vec3 gradient) {
         renderer.shadowMapEnabled = true;
 
         // show axes in the screen
-        var axes = new THREE.AxisHelper(20);
-        scene.add(axes);
+        // var axes = new THREE.AxisHelper(20);
+        // scene.add(axes);
 
         // GEOMETRIES
         var planeGeometry = new THREE.PlaneGeometry(120, 120, 700, 700);
@@ -588,9 +588,9 @@ float snoise(vec3 v, out vec3 gradient) {
 
         // rotate and position the plane
         plane.rotation.x = -0.5 * Math.PI;
-        plane.position.x = 0;// 10;
+        plane.position.x = 15;// 10;
         plane.position.y = 0;
-        plane.position.z = 0;
+        plane.position.z = -15;
 
         // add the plane to the scene
         scene.add(plane);
