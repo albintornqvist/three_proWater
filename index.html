@@ -205,11 +205,6 @@ float snoise(vec3 v, out vec3 gradient) {
                     0.0,                                0.0,                                0.0,                                1.0);
     }
 
-    float smoothAbs(float n) {
-        float mu = 0.01;
-        return abs(n) < mu ? n*n/(2.0*mu)*0.5 : abs(n)-mu*0.5;
-    }
-
     float speedFromFrequency(float freq) {
       // Using the equation for big waves http://hyperphysics.phy-astr.gsu.edu/hbase/Waves/watwav2.html
       return 9.8/(2.0*3.14*freq);
@@ -219,7 +214,7 @@ float snoise(vec3 v, out vec3 gradient) {
       vec3 grad = vec3(0.0);
       vec3 pStretched = vec3(position.x, position.y * stretch - time * speedFromFrequency(frequency), zOffset);
       if (pointy) {
-        return scale * -smoothAbs(snoise(frequency * pStretched, grad));
+        return scale * -abs(snoise(frequency * pStretched, grad));
       }
       return scale * snoise(frequency * pStretched, grad);
     }
@@ -229,9 +224,9 @@ float snoise(vec3 v, out vec3 gradient) {
       vec2 position = (rotationMatrix(vec3(0.0, 0.0, 1.0), rotation * DEG_TO_RAD) * vec4(vec3(p, 0.0), 1.0)).xy;
 
       float wave = 0.0;
-      wave += waveHeight(position, time, 0.0025, 10.0*intensity, 2.5, 1.0, false);
+      wave += waveHeight(position, time, 0.0025, 12.8*intensity, 2.5, 1.0, false);
       wave += waveHeight(position, time, 0.005, 6.4*intensity, 1.0, 11.0, false);
-      wave += waveHeight(position, time, 0.01, 2.0*intensity, 1.5, 9.0, true);
+      wave += waveHeight(position, time, 0.01, 3.2*intensity, 1.5, 9.0, true);
       wave += waveHeight(position, time, 0.02, 1.6*intensity, 1.5, 3.0, true);
       wave += waveHeight(position, time, 0.04, 0.8*intensity, 1.5, 7.0, true);
       wave += waveHeight(position, time, 0.08, 0.4*(intensity*0.5 + 0.5), 1.4, 50.0, true);
